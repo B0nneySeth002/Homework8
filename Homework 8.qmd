@@ -1,0 +1,168 @@
+---
+title: "Homework 8"
+author: "Seth Bonney"
+format: pdf
+editor: visual
+---
+
+## 1
+
+```{r}
+sum_seq_of_squares <- function(n) {
+  output <- 0
+  for (i in 1:n) {
+    out <- output + i * i
+  }
+  out
+}
+
+sum_seq_of_squares(15)   
+sum_seq_of_squares(27)  
+```
+
+## 2
+
+```{r}
+#part a
+library(rvest)
+library(dplyr)
+library(readr)
+library(janitor)
+library(lubridate)
+library(stringr)   
+
+scrape_bomojo <- function(url) {
+  page <- read_html(url)
+
+  table <- page |>
+    html_element("table") |>
+    html_table() |>
+    clean_names() |>
+    mutate(
+      gross = parse_number(gross),
+      theaters = parse_number(theaters),
+      total_gross = parse_number(total_gross),
+      release_date = mdy(paste(release_date, str_extract(url, "\\d{4}")))
+    )
+
+  select(table, -genre, -budget, -running_time, -estimated)
+}
+
+url_2024 <- "https://www.boxofficemojo.com/year/2024/"
+head(scrape_bomojo(url_2024), 10)
+
+# part b
+scrape_bomojo2 <- function(year) {
+  url <- paste0("https://www.boxofficemojo.com/year/", year, "/")
+  scrape_bomojo(url)
+}
+
+head(scrape_bomojo2(2003), 10)
+
+```
+
+## 3
+
+```{r}
+library(nycflights13)
+library(dplyr)
+#part a and b
+filter_severe <- function(data, hours = 1) {
+  data |>
+    filter(is.na(arr_time) | dep_delay > hours * 60)
+}
+
+flights |> filter_severe()
+flights |> filter_severe(hours = 2)
+
+#part c
+summarize_severe <- function(data) {
+  data |>
+    summarize(
+      num_cancelled = sum(is.na(arr_time)),
+      num_delayed_over_1hr = sum(dep_delay > 60, na.rm = TRUE)
+    )
+}
+flights |> group_by(dest) |> summarize_severe()
+
+#part d
+summarize_weather <- function(data, var) {
+  data |>
+    summarize(
+      min = min({{ var }}, na.rm = TRUE),
+      mean = mean({{ var }}, na.rm = TRUE),
+      max = max({{ var }}, na.rm = TRUE)
+    )
+}
+weather |> summarize_weather(temp)
+weather |> summarize_weather(wind_speed)
+
+
+#part e
+standardize_time <- function(data, var) {
+  data |>
+    mutate(
+      decimal_time = floor({{ var }} / 100) + (({{ var }} %% 100) / 60)
+    )
+}
+flights |> standardize_time(sched_dep_time)
+
+```
+
+## 4
+
+```{r}
+library(dplyr)
+
+commute <- read.csv("http://aloy.rbind.io/data/CommuteAtlanta.csv")
+
+# number of bootstrap resamples
+boots <- 1000           
+n <- nrow(commute)
+boot_means <- numeric(boots)
+
+for (b in 1:boots) {
+  sample <- commute |> slice_sample(n = n, replace = TRUE)
+  boot_means[b] <- mean(sample$Time, na.rm = TRUE)
+}
+
+# 95% percentile CI
+confidence_interval <- quantile(boot_means, probs = c(0.025, 0.975), na.rm = TRUE)
+mean_hat <- mean(commute$Time, na.rm = TRUE)
+
+list(
+  sample_mean = mean_hat,
+  percentile_CI_95 = confidence_interval
+)
+
+```
+
+## 5
+
+```{r}
+library(ggplot2)
+num_of_steps <- 100
+position <- numeric(num_of_steps + 1)
+position[1] <- 0
+
+for (t in 2:(num_of_steps + 1)) {
+  flip <- sample(c("heads", "tails"), size = 1)
+  step <- if (flip == "heads") 1 else -1
+  position[t] <- position[t - 1] + step
+}
+
+# Put results in a data frame for ggplot
+df_walk <- data.frame(
+  Step = 0:num_of_steps,
+  Position = position
+)
+
+ggplot(df_walk, aes(x = Step, y = Position)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = "Step",
+    y = "Position of the walker"
+  )
+
+```
